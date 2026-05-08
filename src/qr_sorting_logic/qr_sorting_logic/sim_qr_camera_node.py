@@ -1,4 +1,12 @@
-import io
+"""Simulated QR camera for the MAI605 pick-scan-place demo.
+
+The project requires zbar_ros to decode a QR image after the robot reaches a
+scan pose. This node creates a real QR-code image in memory and publishes it as
+sensor_msgs/Image. It waits for /qr_sort/scan_ready so the perception step is
+logically triggered by the MTC pick-to-scan phase rather than starting before
+the robot reaches the scanner.
+"""
+
 import rclpy
 from rclpy.node import Node
 
@@ -11,9 +19,13 @@ import numpy as np
 
 
 class SimQrCamera(Node):
+    """Publishes a generated QR image and the raw QR text for RViz status."""
+
     def __init__(self):
         super().__init__('sim_qr_camera_node')
 
+        # qr_text is passed from the launch file so BIN_A/B/C/UNKNOWN test cases
+        # can be exercised without editing source code.
         self.declare_parameter('qr_text', 'BIN_A')
         self.declare_parameter('frame_id', 'qr_camera_frame')
         self.declare_parameter('publish_rate', 2.0)
@@ -54,6 +66,7 @@ class SimQrCamera(Node):
             )
 
     def make_qr_image(self, text):
+        """Build a zbar-readable RGB image containing the configured QR text."""
         qr = qrcode.QRCode(
             version=2,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -82,6 +95,7 @@ class SimQrCamera(Node):
         return msg
 
     def on_scan_ready(self, msg):
+        """Enable image publication after the planner reaches the scan phase."""
         if not msg.data:
             return
 
@@ -92,6 +106,7 @@ class SimQrCamera(Node):
         self.scan_ready = True
 
     def publish_image(self):
+        """Publish QR image frames only after scan_ready is true."""
         if not self.scan_ready:
             self.get_logger().info(
                 'Waiting for robot scan pose trigger before publishing QR image.',

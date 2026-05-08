@@ -1,3 +1,11 @@
+"""RViz workcell visualization for the QR sorting demo.
+
+This node publishes MarkerArray geometry that makes the simulation readable in
+RViz: pick station, workpiece, QR panel, scanner/camera, route line, bins, and
+selected-bin status. The markers are visual aids only; MoveIt collision objects
+are created in the MTC node.
+"""
+
 import rclpy
 from geometry_msgs.msg import Point
 from rclpy.node import Node
@@ -19,6 +27,10 @@ class SceneVisualizer(Node):
         self.frame_id = str(self.get_parameter('frame_id').value)
         self.selected_bin = ''
         self.qr_text = 'Waiting'
+
+        # Once the planner reaches the scan phase, the object is considered
+        # carried by MoveIt. The static pick marker is then hidden to avoid
+        # showing two objects at once.
         self.object_picked = False
         self.bin_place_z_offset = 0.04
         self.bins = self.load_bins()
@@ -34,6 +46,7 @@ class SceneVisualizer(Node):
         )
 
     def load_bins(self):
+        """Load bin positions/colors from parameters for RViz display."""
         return {
             'bin_a': {
                 'label': 'BIN A',
@@ -74,6 +87,7 @@ class SceneVisualizer(Node):
             self.object_picked = True
 
     def make_marker(self, marker_id, marker_type, ns, position, scale, color, text=''):
+        """Create a basic RViz marker with shared frame, color, and scale setup."""
         marker = Marker()
         marker.header.frame_id = self.frame_id
         marker.header.stamp = self.get_clock().now().to_msg()
@@ -167,6 +181,7 @@ class SceneVisualizer(Node):
         return marker_id
 
     def add_open_bin(self, markers, marker_id, bin_id, info, selected):
+        """Draw a square open-top bin using separate wall, floor, and rim cubes."""
         pos = info['pos']
         color = info['color']
         outer = 0.20
@@ -201,6 +216,7 @@ class SceneVisualizer(Node):
         return marker_id, bottom_z, top_z
 
     def publish_scene(self):
+        """Publish a complete workcell snapshot every timer tick."""
         markers = MarkerArray()
         clear = Marker()
         clear.action = Marker.DELETEALL
@@ -284,6 +300,9 @@ class SceneVisualizer(Node):
             [0.45, 0.0, 0.47],
             [0.35, -0.25, 0.56],
         ]
+
+        # The route line is not a trajectory; it is a compact visual summary of
+        # the intended flow: pick station -> scan station -> selected bin.
         if self.selected_bin in self.bins:
             bp = self.bins[self.selected_bin]['pos']
             top_z = bin_geometry[self.selected_bin]['top_z']

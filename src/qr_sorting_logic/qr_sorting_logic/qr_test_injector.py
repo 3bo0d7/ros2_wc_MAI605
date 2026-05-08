@@ -8,6 +8,10 @@ from std_msgs.msg import String
 class QrTestInjector(Node):
     def __init__(self) -> None:
         super().__init__('qr_test_injector')
+        # This helper bypasses zbar_ros and publishes directly to /barcode.
+        # It is useful for fast decision-node tests, but it is not used by the
+        # main demo launch because the project demonstration keeps zbar_ros in
+        # the perception pipeline.
         self.declare_parameter('qr_text', 'BIN_A')
         self.publisher = self.create_publisher(String, '/barcode', 10)
         self.timer = self.create_timer(0.5, self.publish_once)

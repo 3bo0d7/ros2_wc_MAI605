@@ -48,11 +48,15 @@ namespace solvers = moveit::task_constructor::solvers;
 class PickScanPlaceMtcNode : public rclcpp::Node {
 public:
   PickScanPlaceMtcNode() : Node("pick_scan_place_mtc") {
+    // Robot, gripper, and frame parameters are kept in YAML so the same node
+    // can be reused with another MoveIt robot configuration if required.
     planning_group_ = declare_parameter<std::string>("planning_group", "panda_arm");
     gripper_group_ = declare_parameter<std::string>("gripper_group", "hand");
     eef_frame_ = declare_parameter<std::string>("eef_frame", "panda_hand");
     base_frame_ = declare_parameter<std::string>("base_frame", "panda_link0");
 
+    // Execution stays disabled for the course demo by default. The MTC
+    // solution is still published to RViz for animation/inspection.
     execute_ = declare_parameter<bool>("execute", false);
 
     home_named_target_ = declare_parameter<std::string>("home_named_target", "ready");
@@ -62,11 +66,21 @@ public:
     use_gripper_width_targets_ = declare_parameter<bool>("use_gripper_width_targets", true);
     gripper_open_named_target_ = declare_parameter<std::string>("gripper_open_named_target", "open");
     gripper_closed_named_target_ = declare_parameter<std::string>("gripper_closed_named_target", "close");
+
+    // The Panda SRDF "close" state fully closes the fingers. Width targets
+    // stop the fingers around the cube sides, which is more realistic for a
+    // 6 cm workpiece and avoids a visually crushed grasp.
     gripper_open_width_ = declare_parameter<double>("gripper_open_width", 0.04);
     gripper_grasp_width_ = declare_parameter<double>("gripper_grasp_width", 0.028);
+
+    // Pose targets in this demo represent the object/grasp center. The offset
+    // places the actual panda_hand frame back at the palm so the palm does not
+    // enter the workpiece during IK planning.
     grasp_frame_offset_ =
       declare_parameter<std::vector<double>>("grasp_frame_offset", {0.0, 0.0, 0.1034});
 
+    // Collision geometry used by MoveIt. RViz markers show a richer scene, but
+    // these objects are the geometry the planner actually checks against.
     object_id_ = declare_parameter<std::string>("object_id", "workpiece");
     object_size_ = declare_parameter<std::vector<double>>("object_size", {0.06, 0.06, 0.06});
     table_id_ = declare_parameter<std::string>("table_id", "pick_station_support");
@@ -92,6 +106,8 @@ public:
     scan_pose_ = poseFromParameter("scan_pose", {0.35, -0.25, 0.50, 0.0, 1.0, 0.0, 0.0});
     selected_bin_pose_ = poseFromVector({0.45, 0.25, 0.35, 0.0, 1.0, 0.0, 0.0});
 
+    // The decision node publishes the placement target after zbar_ros decodes
+    // the QR image. Until this arrives, the planner only performs pick-to-scan.
     bin_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       "/qr_sort/bin_pose", 10,
       [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -106,6 +122,9 @@ public:
 
     scan_ready_pub_ = create_publisher<std_msgs::msg::Bool>("/qr_sort/scan_ready", 10);
 
+    // Timer-based orchestration keeps this demo node simple:
+    // 1) plan pick-to-scan, 2) trigger QR image publication, 3) wait for
+    // bin_pose, 4) plan the complete pick-scan-place task.
     plan_timer_ = create_wall_timer(
       std::chrono::seconds(2),
       [this]() {
@@ -135,6 +154,7 @@ private:
   geometry_msgs::msg::PoseStamped poseFromParameter(
       const std::string& name,
       const std::vector<double>& fallback) {
+    // All poses are stored as [x, y, z, qx, qy, qz, qw] for readability in YAML.
     const auto raw = declare_parameter<std::vector<double>>(name, fallback);
     return poseFromVector(raw);
   }
@@ -213,6 +233,7 @@ private:
   }
 
   double clampedFingerWidth(double width) const {
+    // Panda finger joints are prismatic with a valid range of 0.0 to 0.04 m.
     if (width < 0.0) {
       return 0.0;
     }
@@ -274,6 +295,8 @@ private:
   std::vector<std::string> gripperCollisionLinks(const Task& task) const {
     std::vector<std::string> links;
 
+    // Allow/disallow contact against every collision-enabled link in the hand
+    // group so the fingers can close on the object only during the grasp.
     const auto* jmg = task.getRobotModel()->getJointModelGroup(gripper_group_);
     if (jmg) {
       links = jmg->getLinkModelNamesWithCollisionGeometry();
@@ -311,6 +334,9 @@ private:
       const std::string& bin_id,
       const geometry_msgs::msg::PoseStamped& bin_pose,
       std::vector<moveit_msgs::msg::CollisionObject>& objects) const {
+    // Model each open-top bin as five planning-scene boxes: floor plus four
+    // walls. There is intentionally no roof so the robot can lower vertically
+    // through the bin opening.
     const double outer = bin_outer_size_;
     const double wall = bin_wall_thickness_;
     const double floor = bin_floor_thickness_;
@@ -408,6 +434,7 @@ private:
 
     auto joint = std::make_shared<solvers::JointInterpolationPlanner>();
 
+    // CurrentState anchors the task to the robot state published in RViz/MoveIt.
     task.add(std::make_unique<stages::CurrentState>("current state"));
 
     {
@@ -448,6 +475,9 @@ private:
     // and this task uses selected_bin_pose_ as the target placement bin.
     const auto place_pose = poseWithZOffset(selected_bin_pose_, bin_place_z_offset_);
     const auto above_bin_pose = poseWithZOffset(place_pose, lower_distance_);
+
+    // Approach the bin from above instead of diagonally through the bin wall.
+    // This makes the motion consistent with the open-top bin collision model.
     task.add(makeMoveToPose("move attached object above selected bin opening", above_bin_pose, joint));
     task.add(makeCartesianMove("lower attached object into bin", 0.0, 0.0, -lower_distance_, cartesian));
 
@@ -529,10 +559,14 @@ private:
     task.add(makeCartesianMove("lift attached object", 0.0, 0.0, lift_distance_, cartesian));
     task.add(makeMoveToPose("move attached object to QR scan pose", scan_pose_, joint));
 
+    // This phase ends at the scan station. A successful solution triggers the
+    // simulated QR camera so perception happens after the planned pick motion.
     return task;
   }
 
   void startSolutionRepublisher() {
+    // RViz Motion Planning Tasks can miss a one-time publication during launch,
+    // so the latest solution is republished periodically for a stable demo.
     solution_republish_timer_ = create_wall_timer(
       std::chrono::seconds(2),
       [this]() {
@@ -563,6 +597,8 @@ private:
   void planPickToScanTask() {
     RCLCPP_INFO(get_logger(), "Planning pick-to-scan phase before QR decode.");
 
+    // Refresh collision objects before each task because RViz/MoveIt launch
+    // order can otherwise leave the planning scene without the demo objects.
     addPlanningSceneObjects();
 
     active_task_ = std::make_unique<Task>(createPickToScanTask());
@@ -591,6 +627,8 @@ private:
   void planTask() {
     RCLCPP_INFO(get_logger(), "Planning QR pick-scan-place task. execute=%s", execute_ ? "true" : "false");
 
+    // Reapply objects before the full task to ensure the selected-bin plan uses
+    // the same workpiece and bin collision geometry as the pick-to-scan phase.
     addPlanningSceneObjects();
 
     active_task_ = std::make_unique<Task>(createTask());

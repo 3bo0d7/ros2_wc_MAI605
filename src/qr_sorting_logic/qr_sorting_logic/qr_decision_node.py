@@ -70,6 +70,9 @@ class QrDecisionNode(Node):
         self.bin_id_pub = self.create_publisher(String, '/qr_sort/bin_id', 10)
         self.bin_pose_pub = self.create_publisher(PoseStamped, '/qr_sort/bin_pose', 10)
 
+        # Humble zbar_ros installations are not always consistent. The standard
+        # project path uses /barcode as std_msgs/String; /symbol is subscribed
+        # only when zbar_ros_interfaces is installed.
         self.create_subscription(String, '/barcode', self._on_barcode_msg, 10)
         if Symbol is not None:
             self.create_subscription(Symbol, '/symbol', self._on_symbol_msg, 10)
@@ -88,11 +91,14 @@ class QrDecisionNode(Node):
         self._process_qr_text(msg.data, source='/barcode')
 
     def _process_qr_text(self, raw_text: str, source: str) -> None:
+        """Normalize decoded QR text and publish the bin selected by the map."""
         qr_text = (raw_text or '').strip()
         if not qr_text:
             self.get_logger().warn(f'Ignored empty QR message from {source}.')
             return
 
+        # Unknown values are not errors; they are routed to reject_bin so the
+        # robot still completes a deterministic sorting cycle.
         bin_id = self.alias_to_bin.get(qr_text.lower(), self.unknown_bin_id)
         pose = self.bin_pose.get(bin_id, self.bin_pose[self.unknown_bin_id])
 
@@ -112,6 +118,7 @@ class QrDecisionNode(Node):
             self.last_logged_decision = decision_key
 
     def _make_pose_msg(self, pose: PoseTuple) -> PoseStamped:
+        """Convert a YAML pose tuple into the PoseStamped expected by MTC."""
         x, y, z, qx, qy, qz, qw = pose
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
