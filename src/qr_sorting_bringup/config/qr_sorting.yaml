@@ -1,0 +1,40 @@
+qr_decision_node:
+  ros__parameters:
+    base_frame: base_link
+    unknown_bin_id: reject_bin
+
+    bin_a:
+      keys: ["BIN_A", "A", "red", "product_a"]
+      pose: [0.35, 0.25, 0.18, 0.0, 0.0, 0.0, 1.0]
+
+    bin_b:
+      keys: ["BIN_B", "B", "green", "product_b"]
+      pose: [0.45, 0.00, 0.18, 0.0, 0.0, 0.0, 1.0]
+
+    bin_c:
+      keys: ["BIN_C", "C", "blue", "product_c"]
+      pose: [0.35, -0.25, 0.18, 0.0, 0.0, 0.0, 1.0]
+
+    reject_bin:
+      pose: [0.25, -0.40, 0.18, 0.0, 0.0, 0.0, 1.0]
+
+pick_scan_place_mtc:
+  ros__parameters:
+    planning_group: arm
+    gripper_group: gripper
+    eef_frame: link6_flange
+    base_frame: base_link
+    execute: false
+
+    # Named states must exist in your SRDF. Rename to match the tutorial robot if needed.
+    home_named_target: home
+    ready_named_target: ready
+
+    # Fixed station poses. Tune in RViz for your robot and table.
+    pick_pose: [0.25, 0.00, 0.14, 0.0, 1.0, 0.0, 0.0]
+    scan_pose: [0.18, -0.30, 0.32, 0.0, 1.0, 0.0, 0.0]
+
+    approach_distance: 0.08
+    lift_distance: 0.10
+    lower_distance: 0.08
+    retreat_distance: 0.08

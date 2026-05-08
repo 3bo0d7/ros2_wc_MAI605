@@ -1,0 +1,15 @@
+pick_scan_place_mtc:
+  ros__parameters:
+    planning_group: arm
+    gripper_group: gripper
+    eef_frame: link6_flange
+    base_frame: base_link
+    execute: false
+    home_named_target: home
+    ready_named_target: ready
+    pick_pose: [0.25, 0.00, 0.14, 0.0, 1.0, 0.0, 0.0]
+    scan_pose: [0.18, -0.30, 0.32, 0.0, 1.0, 0.0, 0.0]
+    approach_distance: 0.08
+    lift_distance: 0.10
+    lower_distance: 0.08
+    retreat_distance: 0.08

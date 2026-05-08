@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>qr_sorting_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch and configuration files for the MAI605 QR sorting manipulation project.</description>
+  <maintainer email="student@example.com">MAI605 Student</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>qr_sorting_logic</exec_depend>
+  <exec_depend>qr_sorting_mtc</exec_depend>
+  <exec_depend>zbar_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
