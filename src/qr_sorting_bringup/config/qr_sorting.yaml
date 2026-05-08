@@ -1,0 +1,70 @@
+qr_decision_node:
+  ros__parameters:
+    base_frame: panda_link0
+    unknown_bin_id: reject_bin
+
+    bin_a:
+      keys: ["BIN_A", "A", "red", "product_a"]
+      pose: [0.30, 0.50, 0.35, 0.0, 1.0, 0.0, 0.0]
+
+    bin_b:
+      keys: ["BIN_B", "B", "green", "product_b"]
+      pose: [0.50, 0.28, 0.35, 0.0, 1.0, 0.0, 0.0]
+
+    bin_c:
+      keys: ["BIN_C", "C", "blue", "product_c"]
+      pose: [0.30, -0.50, 0.35, 0.0, 1.0, 0.0, 0.0]
+
+    reject_bin:
+      pose: [0.50, -0.28, 0.35, 0.0, 1.0, 0.0, 0.0]
+
+pick_scan_place_mtc:
+  ros__parameters:
+    planning_group: panda_arm
+    gripper_group: hand
+    eef_frame: panda_hand
+    base_frame: panda_link0
+    execute: false
+
+    # Named states must exist in your SRDF. Rename to match the tutorial robot if needed.
+    home_named_target: ready
+    ready_named_target: ready
+    use_gripper_stages: true
+    # Use Panda finger joint targets instead of the fully closed SRDF state so
+    # the visual gripper clamps the exterior of the 6 cm workpiece.
+    use_gripper_width_targets: true
+    gripper_open_width: 0.04
+    gripper_grasp_width: 0.028
+    # Pose targets are expressed at the cube/grasp center. This offset places
+    # the Panda hand frame back at the palm so the fingers hold the cube sides.
+    grasp_frame_offset: [0.0, 0.0, 0.1034]
+    gripper_open_named_target: open
+    gripper_closed_named_target: close
+    object_id: workpiece
+    object_size: [0.06, 0.06, 0.06]
+    table_id: pick_station_support
+    table_size: [0.16, 0.16, 0.02]
+    table_pose: [0.45, 0.00, 0.20]
+    bin_outer_size: 0.20
+    bin_wall_thickness: 0.010
+    bin_wall_height: 0.10
+    bin_floor_thickness: 0.012
+    bin_bottom_offset: 0.055
+    bin_place_z_offset: 0.04
+    bin_a:
+      pose: [0.30, 0.50, 0.35, 0.0, 1.0, 0.0, 0.0]
+    bin_b:
+      pose: [0.50, 0.28, 0.35, 0.0, 1.0, 0.0, 0.0]
+    bin_c:
+      pose: [0.30, -0.50, 0.35, 0.0, 1.0, 0.0, 0.0]
+    reject_bin:
+      pose: [0.50, -0.28, 0.35, 0.0, 1.0, 0.0, 0.0]
+
+    # Fixed station poses. Tune in RViz for your robot and table.
+    pick_pose: [0.45, 0.00, 0.37, 0.0, 1.0, 0.0, 0.0]
+    scan_pose: [0.35, -0.25, 0.50, 0.0, 1.0, 0.0, 0.0]
+
+    approach_distance: 0.02
+    lift_distance: 0.05
+    lower_distance: 0.10
+    retreat_distance: 0.10
